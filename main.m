@@ -414,9 +414,9 @@ cost.R = 1;             % Weighting on control input (scalar, as there's only on
 % Initialize solver
 options = sdpsettings('verbose',0,'solver','quadprog');
 
-con.xmax = [10; 5*pi/180; 10; 10; 100];
+con.xmax = [10; 10*pi/180; 10; 10; 100];
 con.xmin = -con.xmax;
-con.umax = 1e1;
+con.umax = 100;
 con.umin = -con.umax;
 
 [con.Ff, con.ff] = get_term_state_constraints(LTI, con, dim);
@@ -464,15 +464,21 @@ solutions_out = {xr, ur};
 target_selector = optimizer(constraints, objective, options, parameters_in, solutions_out);
 
 % Generate y_ref
-y_ref = generate_reference(time, 360*pi/180,false) - param.y_eq(1:2);
+y_ref = generate_reference(param.time, 360*pi/180,false) - param.y_eq(1:2);
 
 % Simulation : Receding horizon implementation for the constrained control problem
-x = zeros(dim.nx,param.T);  % state vector with 0 at linearization point
-x(:,1) = [0;param.eps;0;0;0];  % starting from the up position of the pendulum with 
-d = zeros(1, param.T); d(:,floor(param.T/2)) = 0.01;
+xhat = zeros(dim.nx,param.T);  % state vector with 0 at linearization point
+xhat(:,1) = [0;0;0;0;0];  % starting from the up position of the pendulum with
+x = zeros(dim.nx,param.T);
+x(:,1) = [0;param.eps;0;0;0];       % real starting position for state vector
 u_rec = zeros(dim.nu,param.T); % input vector
 
 for k=1:param.T-1
+    % Do measurement update 
+    measurement_noise = 0.001*normrnd(0,1,2,1);
+    y = LTI.C*x(:,k)+measurement_noise;
+    [xhat(:,k), cov.pos] = measurement_update(xhat(:,k), y, LTI, cov);
+
     % Target selection
     inputs = {y_ref(:,k)};
     [solutions, diagnostics] = target_selector{inputs};
@@ -483,7 +489,7 @@ for k=1:param.T-1
     end
 
     % Solve problem
-    inputs = {x(:,k), x_ref, u_ref};
+    inputs = {xhat(:,k), x_ref, u_ref};
     [solutions,diagnostics] = controller{inputs};    
     U = solutions{1};
     X = solutions{2};
@@ -495,43 +501,53 @@ for k=1:param.T-1
     u_rec(:,k) = U(1);
 
     % Compute the state/output evolution
-    x(:,k+1) = LTI.A*x(:,k) + LTI.B*u_rec(:,k); % + LTI.Bdist*d(:,k)
+    process_noise = zeros(dim.nx, 1); process_noise(end,1) = 0.5* normrnd(0,1);
+    x(:,k+1) = LTI.A*x(:,k) + LTI.B*u_rec(:,k) + process_noise; % + LTI.Bdist*d(:,k)
+
+    % Do dynamic update for next k
+    [xhat(:,k+1), cov.pos] = dynamic_update(xhat(:,k), u_rec(:,k), LTI, cov);
 end
 
 
 % Plotting Results
-figure(4); clf;
+figure(6); clf;
 subplot(3,2,1);
-stairs(param.time, x(1,:));hold on;
-plot(param.time, y_ref(1,:));
+
+plot(param.time,y_ref(1,:)); hold on;
+stairs(param.time,xhat(1,:));
+
+plot(param.time,x(1,:),'--', color='black');
+
 title('State x_1 (\theta_1)');
-legend('state x_1', 'reference')
 grid on;
 
 subplot(3,2,2);
-stairs(param.time,x(2,:));hold on;
-plot(param.time, y_ref(2,:));
+plot(param.time,x(2,:),'--', color='black'); hold on;
+stairs(param.time,xhat(2,:));
 title('State x_2 (\theta_2)');
 grid on;
 yline(0, '--r', 'Reference \pi');  % Reference line for theta2
 
 subplot(3,2,3);
-stairs(param.time,x(3,:));
+plot(param.time,x(3,:),'--', color='black'); hold on;
+stairs(param.time,xhat(3,:));
 title('State x_3 (\theta_1 dot)');
 grid on;
 
 subplot(3,2,4);
-stairs(param.time,x(4,:));
+plot(param.time,x(4,:),'--', color='black'); hold on;
+stairs(param.time,xhat(4,:));
 title('State x_4 ({\theta}_2 dot)');
 grid on;
 
 subplot(3,2,5);
-stairs(param.time,x(5,:));
+plot(param.time,x(5,:),'--', color='black'); hold on;
+stairs(param.time,xhat(5,:));
 title('State x_5 (i)');
 grid on;
 
 subplot(3,2,6);
-stairs(param.time,u_rec(1,:));
+stairs(param.time,u_rec(1,:)); 
 title('Input u (V)');
 grid on;
 
