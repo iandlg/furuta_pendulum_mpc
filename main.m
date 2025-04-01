@@ -1,4 +1,4 @@
-% Furuta Pendulum Simulation (Nonlinear Dynamics with Inputs)
+% Futura Pendulum Simulation (Nonlinear Dynamics with Inputs)
 
 clear; clc; close all;
 eps = 0.08; % deviation from initial condition
@@ -28,13 +28,31 @@ V = @(t) 10;  % Voltage applied to the motor (V)
 u2 = @(t) 0;  % External disturbance torque on Arm 2 (Nm)
 
 %% Equations of Motion with Inputs
-pendulum_dynamics = @(t, y) [
-    y(3);
-    y(4);
-    (-J2_hat*b1*y(3)+m2*L1*l2*cos(y(2))*b2*y(4)-J2_hat^2*sin(2*y(2))*y(3)*y(4)-0.5*J2_hat*m2*L1*l2*cos(y(2))*sin(2*y(2))*y(3)^2+J2_hat*m2*L1*l2*sin(y(2))*y(4)^2+J2_hat*Km*y(5)-m2*L1*l2*cos(y(2))*u2(t)+0.5*m2^2*l2^2*L1*sin(2*y(2))*g)/(J0_hat*J2_hat+J2_hat^2*sin(y(2))^2-m2^2*L1^2*l2^2*cos(y(2))^2);
-    (m2*L1*l2*cos(y(2))*b1*y(3)-b2*(J0_hat+J2_hat*sin(y(2))^2)*y(4)+m2*L1*l2*J2_hat*cos(y(2))*sin(2*y(2))*y(3)*y(4)-0.5*sin(2*y(2))*(J0_hat*J2_hat+J2_hat^2*sin(y(2))^2)*y(3)^2-0.5*m2^2*L1^2*l2^2*sin(2*y(2))*y(4)^2-m2*L1*l2*cos(y(2))*Km*y(5)+(J0_hat+J2_hat*sin(y(2))^2)*u2(t)-m2*l2*sin(y(2))*(J0_hat+J2_hat*sin(y(2))^2)*g)/(J0_hat*J2_hat+J2_hat^2*sin(y(2))^2-m2^2*L1^2*l2^2*cos(y(2))^2);
-    (V(t)-Rm*y(5)-Km*y(3))/Lm;
-];
+ pendulum_dynamics = @(t, y) [
+        y(3);
+        y(4);
+        (- J2_hat*b1*y(3) ...
+         - m2*L1*l2*cos(y(2))*b2*y(4) ...
+         - J2_hat^2*sin(2*(y(2)))*y(3)*y(4) ...
+         + 0.5*J2_hat*m2*L1*l2*cos(y(2))*sin(2*(y(2)))*y(3)^2 ...
+         - J2_hat*m2*L1*l2*sin((y(2)))*y(4)^2 ...
+         + J2_hat*Km*y(5) ...
+         + m2*L1*l2*cos((y(2)))*u2(t) ...
+         + 0.5*m2^2*l2^2*L1*sin(2*(y(2)))*g) ...
+         /(J0_hat*J2_hat + J2_hat^2*sin(y(2))^2-m2^2*L1^2*l2^2*cos(y(2))^2);
+    
+        (- m2*L1*l2*cos(y(2))*b1*y(3) ...
+         - b2*(J0_hat+J2_hat*sin(y(2))^2)*y(4) ...
+         - m2*L1*l2*J2_hat*cos(y(2))*sin(2*(y(2)))*y(3)*y(4) ...
+         - 0.5*sin(2*(y(2)))*(J0_hat*J2_hat + J2_hat^2*sin(y(2))^2)*y(3)^2 ...
+         - 0.5*m2^2*L1^2*l2^2*sin(2*(y(2)))*y(4)^2 ...
+         + m2*L1*l2*cos(y(2))*Km*y(5) ...
+         + (J0_hat+J2_hat*sin(y(2))^2)*u2(t) ...
+         + m2*l2*sin(y(2))*(J0_hat+J2_hat*sin(y(2))^2)*g)...
+         /(J0_hat*J2_hat + J2_hat^2*sin(y(2))^2-m2^2*L1^2*l2^2*cos(y(2))^2);
+    
+         (V(t)-Rm*y(5)-Km*y(3))/Lm;
+    ];
 %% Simulation Settings
 Tspan = [0 4];
 Y0 = [0; 0; 0; 0; 0]; % Initial conditions: [theta1, theta2, theta1_dot, theta2_dot]
@@ -46,7 +64,7 @@ Y0 = [0; 0; 0; 0; 0]; % Initial conditions: [theta1, theta2, theta1_dot, theta2_
 figure(1);
 plot(t, Y(:,1), 'r', t, Y(:,2), 'b');
 legend('\theta_1 (Arm Rotation)', '\theta_2 (Pendulum Angle)');
-xlabel('Time (s)'); ylabel('Angle (rad)'); title('Furuta Pendulum Simulation with Input Torque');
+xlabel('Time (s)'); ylabel('Angle (rad)'); title('Futura Pendulum Simulation with Input Torque');
 
 grid on;
 %% LINEARIZATION OF THE SYSTEM 
@@ -57,18 +75,26 @@ dyn.u = [V; u2];  % Input vector [u1, u2]
 
 %% Equations of Motion (Nonlinear)
 dy1 = y3;
-dy2 = y4;
-dy3 = (-J2_hat*b1*y3 + m2*L1*l2*cos(y2)*b2*y4 - J2_hat^2*sin(2*y2)*y3*y4 - ...
-            0.5*J2_hat*m2*L1*l2*cos(y2)*sin(2*y2)*y3^2 + J2_hat*m2*L1*l2*sin(y2)*y4^2 + ...
-            J2_hat*Km*y5 - m2*L1*l2*cos(y2)*u2 + 0.5*m2^2*l2^2*L1*sin(2*y2)*g) / ...
-            (J0_hat*J2_hat + J2_hat^2*sin(y2)^2 - m2^2*L1^2*l2^2*cos(y2)^2);
-dy4 = (m2*L1*l2*cos(y2)*b1*y3 - b2*(J0_hat + J2_hat*sin(y2)^2)*y4 + ...
-            m2*L1*l2*J2_hat*cos(y2)*sin(2*y2)*y3*y4 - 0.5*sin(2*y2)*(J0_hat*J2_hat + ...
-            J2_hat^2*sin(y2)^2)*y3^2 - 0.5*m2^2*L1^2*l2^2*sin(2*y2)*y4^2 - ...
-            m2*L1*l2*cos(y2)*Km*y5 + (J0_hat + J2_hat*sin(y2)^2)*u2 - m2*l2*sin(y2)*(J0_hat + ...
-            J2_hat*sin(y2)^2)*g) / (J0_hat*J2_hat + J2_hat^2*sin(y2)^2 - m2^2*L1^2*l2^2*cos(y2)^2);
-
-dy5 = (V-Rm*y5-Km*y3)/Lm;
+    dy2 = y4;
+    dy3 = (- J2_hat*b1*y3 ...
+           - m2*L1*l2*cos(y2)*b2*y4 ...
+           - J2_hat^2*sin(2*y2)*y3*y4 ...
+           + 0.5*J2_hat*m2*L1*l2*cos(y2)*sin(2*y2)*y3^2 ...
+           - J2_hat*m2*L1*l2*sin(y2)*y4^2 ...
+           + J2_hat*Km*y5 ...
+           + m2*L1*l2*cos(y2)*u2 ...
+           + 0.5*m2^2*l2^2*L1*sin(2*y2)*g)... 
+           /(J0_hat*J2_hat + J2_hat^2*sin(y2)^2 - m2^2*L1^2*l2^2*cos(y2)^2);
+    dy4 = ( - m2*L1*l2*cos(y2)*b1*y3 ...
+            - b2*(J0_hat + J2_hat*sin(y2)^2)*y4 ...
+            - m2*L1*l2*J2_hat*cos(y2)*sin(2*y2)*y3*y4 ...
+            - 0.5*sin(2*y2)*(J0_hat*J2_hat + J2_hat^2*sin(y2)^2)*y3^2 ...
+            - 0.5*m2^2*L1^2*l2^2*sin(2*y2)*y4^2 ...
+            + m2*L1*l2*cos(y2)*Km*y5 ...
+            + (J0_hat + J2_hat*sin(y2)^2)*u2...
+            + m2*l2*sin(y2)*(J0_hat + J2_hat*sin(y2)^2)*g)...
+            / (J0_hat*J2_hat + J2_hat^2*sin(y2)^2 - m2^2*L1^2*l2^2*cos(y2)^2);
+    dy5 = (V - Rm*y5 - Km*y3)/Lm;
 % System of equations
 dyn.f = [dy1; dy2; dy3; dy4; dy5];
 
@@ -77,7 +103,7 @@ dyn.f = [dy1; dy2; dy3; dy4; dy5];
 clc; close all;
 disp("MPC implementation - Linearized")
 % Get linearized system
-param.y_eq = [0; pi; 0; 0; 0];  % Equilibrium point [theta1, theta2, theta1_dot, theta2_dot, i_motor]
+param.y_eq = [0; 0; 0; 0; 0];  % Equilibrium point [theta1, theta2, theta1_dot, theta2_dot, i_motor]
 param.u_eq = [0; 0];  % Equilibrium input [u1, u2]
 param.Ts = 0.2;
 
@@ -88,6 +114,7 @@ options = sdpsettings('verbose',0,'solver','quadprog');
 dim.N = 50;      % horizon
 dim.nx = size(LTI.A,1);      % system order
 dim.nu = 1;      % input order
+dim.nd = 1;  %number of disturbance
 param.time = 0:param.Ts:30;
 param.T = length(param.time);    % simulation number of steps
 param.eps = 1*pi/180; % deviation from equilibrium
@@ -160,48 +187,14 @@ for k=1:param.T-1
 end
 
 
-% Plotting Results
-figure(4); clf;
-subplot(3,2,1);
-stairs(param.time, x(1,:));
-title('State x_1 (\theta_1)');
-grid on;
-
-subplot(3,2,2);
-stairs(param.time, x(2,:));
-title('State x_2 (\theta_2)');
-grid on;
-yline(0, '--r', 'Reference \pi');  % Reference line for theta2
-
-subplot(3,2,3);
-stairs(param.time, x(3,:));
-title('State x_3 (\theta_1 dot)');
-grid on;
-
-subplot(3,2,4);
-stairs(param.time, x(4,:));
-title('State x_4 ({\theta}_2 dot)');
-grid on;
-
-subplot(3,2,5);
-stairs(param.time, x(5,:));
-title('State x_5 (i)');
-grid on;
-
-subplot(3,2,6);
-stairs(param.time, u_rec(1,:));
-title('Input u (V)');
-grid on;
-
-xlabel('Time (s)');
-sgtitle('State Evolution with MPC linear state control');
+plot_state(x, u_rec, 'State and Input Evolution with MPC linear state control');
 
 %% MPC implementation - Non Linear dynamics; full state knowledge
 clc;
 disp("MPC implementation - Non Linear dynamics; full state knowledge")
 u_rec = zeros(dim.nu,param.T); % input vector
 x_nonlin = zeros(dim.nx, param.T);
-xref  = [0;pi;0;0;0];
+xref  = [0;0;0;0;0];
 
 x_nonlin(:,1) = xref + [0;param.eps;0;0;0];
 
@@ -219,45 +212,12 @@ for k=1:param.T
 
     % sim real siyst
     % Simulate the nonlinear dynamics over one time step using ODE45
-    [~, y_next] = ode45(@(t, y) furuta_nonlinear(y, u_rec(:,k), 0), [0 param.Ts], x_nonlin(:,k));
+    [~, y_next] = ode45(@(t, y) futura_nonlinear(y, u_rec(:,k), 0), [0 param.Ts], x_nonlin(:,k));
     x_nonlin(:,k+1) = y_next(end,:)';
 end
 
-% Plotting Results
-figure(5); clf;
-subplot(3,2,1);
-stairs(x_nonlin(1,:));
-title('State x_1 (\theta_1)');
-grid on;
+plot_state(x_nonlin, u_rec, 'State and Input Evolution with MPC nonlinear state control');
 
-subplot(3,2,2);
-stairs(x_nonlin(2,:));
-title('State x_2 (\theta_2)');
-grid on;
-yline(0, '--r', 'Reference \pi');  % Reference line for theta2
-
-subplot(3,2,3);
-stairs(x_nonlin(3,:));
-title('State x_3 (\theta_1 dot)');
-grid on;
-
-subplot(3,2,4);
-stairs(x_nonlin(4,:));
-title('State x_4 ({\theta}_2 dot)');
-grid on;
-
-subplot(3,2,5);
-stairs(x_nonlin(5,:));
-title('State x_5 (i)');
-grid on;
-
-subplot(3,3,6);
-stairs(u_rec(1,:));
-title('Input u (V)');
-grid on;
-
-xlabel('Time (s)');
-sgtitle('State Evolution with MPC nonlinear state control');
 
 %% Output MPC - with input and measurement noise
 disp("Output MPC - with input and measurement noise")
@@ -340,47 +300,7 @@ end
 % input
 
 
-
-% Plotting Results
-figure(6); clf;
-subplot(3,2,1);
-plot(x(1,:),'--', color='black'); hold on;
-stairs(xhat(1,:));
-title('State x_1 (\theta_1)');
-grid on;
-
-subplot(3,2,2);
-plot(x(2,:),'--', color='black'); hold on;
-stairs(xhat(2,:));
-title('State x_2 (\theta_2)');
-grid on;
-yline(0, '--r', 'Reference \pi');  % Reference line for theta2
-
-subplot(3,2,3);
-plot(x(3,:),'--', color='black'); hold on;
-stairs(xhat(3,:));
-title('State x_3 (\theta_1 dot)');
-grid on;
-
-subplot(3,2,4);
-plot(x(4,:),'--', color='black'); hold on;
-stairs(xhat(4,:));
-title('State x_4 ({\theta}_2 dot)');
-grid on;
-
-subplot(3,2,5);
-plot(x(5,:),'--', color='black'); hold on;
-stairs(xhat(5,:));
-title('State x_5 (i)');
-grid on;
-
-subplot(3,2,6);
-stairs(u_rec(1,:)); 
-title('Input u (V)');
-grid on;
-
-xlabel('Time (s)');
-sgtitle('State Evolution with output MPC on linearized system');
+plot_state(x, u_rec, 'State Evolution with output MPC on linearized system,Kalman filter',xhat);
 
 %% state MPC - reference tracking (partial rotation of base arm)
 clc; close all;
@@ -788,3 +708,137 @@ for k=1:param.T
     % Compute the state/output evolution
     x(:,k+1) = LTI.A*x(:,k) + LTI.B*u_rec(:,k); % + LTI.Bdist*d(:,k)
 end
+%% MPC Observer
+%% OUTPUT MPC with observer
+param.eps = 2*pi/180;
+yref = [0;0];
+x0 = [0;param.eps;0;0;0];
+d = 0;
+
+LTI.Cdist = [0;0];
+
+LTIe.A=[LTI.A LTI.Bdist; zeros(dim.nd,dim.nx) eye(dim.nd)];
+LTIe.B=[LTI.B; zeros(dim.nd,dim.nu)];
+LTIe.C=[LTI.C LTI.Cdist];
+LTIe.x0=[x0; d];
+LTIe.yref=yref;
+
+dime.nx=6;     %state dimension
+dime.nu=1;     %input dimension
+dime.ny=2;     %output dimension
+dime.N=5;      %horizon
+
+weighte.Q=blkdiag(cost.Q,zeros(dim.nd));            %weight on output
+weighte.R=cost.R;                                   %weight on input
+weighte.P=blkdiag(cost.Qf,zeros(dim.nd));  
+
+xe=zeros(dime.nx,param.T+1);
+y=zeros(dime.ny,param.T+1);
+u_rec=zeros(dime.nu,param.T);
+xehat=zeros(dime.nx,param.T+1);
+
+xe(:,1)=LTIe.x0;
+xehat(:,1)=[0; 0; 0; 0; 0; 0];
+y(:,1)=LTIe.C*LTIe.x0;
+
+
+L = place(LTIe.A',LTIe.C',[0.5; 0.4; 0.45;0.6;0.65; 0.3])';
+
+options = sdpsettings('verbose',0,'solver','quadprog');
+
+con.xmax = [10; 10*pi/180; 10; 10; 100];
+con.xmin = -con.xmax;
+con.xmaxe = [10; 10*pi/180; 10; 10; 100; inf];
+con.xmine = -con.xmaxe;
+con.umax = 100;
+con.umin = -con.umax;
+
+% optimizer for the controller
+u = sdpvar(repmat(dime.nu,1,dime.N),ones(1,dime.N)); 
+x = sdpvar(repmat(dime.nx,1,dime.N+1),ones(1,dime.N+1));
+xr = sdpvar(dime.nx,1);
+ur = sdpvar(dime.nu, 1);
+
+constraints = [];
+objective = 0;
+for k = 1:dime.N
+ objective = objective + (x{k}-xr)'*weighte.Q*(x{k}-xr) + (u{k}-ur)'*weighte.R*(u{k}-ur);
+ constraints = [constraints, x{k+1} == LTIe.A*x{k} + LTIe.B*u{k}];
+ constraints = [constraints, con.umin <= u{k}<= con.umax, con.xmine <= x{k+1}<= con.xmaxe];
+end
+
+objective = objective + (x{dime.N+1}-xr)'*weighte.P*(x{dime.N+1}-xr);
+
+parameters_in = {x{1}, xr, ur};
+solutions_out = {[u{:}], [x{:}]};
+
+controller = optimizer(constraints, objective,options,parameters_in,solutions_out);
+
+%optimizer for the target selection
+%{
+xref = sdpvar(dim.nx,1);
+uref = sdpvar(dim.nu,1);
+dtilde = sdpvar(dim.nd,1);
+constraints = [];
+constraints = [
+                [eye(dim.nx)-LTI.A -LTI.B;
+                LTI.C zeros(dim.ny,dim.nu)]*[xref;uref]==[LTI.Bdist*dtilde; yref-LTI.Cdist*dtilde];
+                con.xmin <= xref <= con.xmax;
+                con.umin <= uref <= con.umax
+               ];
+objective = [];
+% objective = uref'*uref;
+objective = 0;
+solutions_input = {dtilde};
+solutions_output = {xref, uref};
+
+target_selector = optimizer(constraints, objective, options, solutions_input, solutions_output);
+%}
+for k=1:param.T
+
+    if(k>=150 )
+        xe(end,k) = 0.0001;
+    else
+        xe(end,k) = 0;
+    end
+    xe_0=xe(:,k);  
+    dhat=xehat(end-dim.nd+1:end,k);
+    
+    %{
+    % Compute optimal ss (online, at every iteration)
+    inputs = {dhat};
+    [solutions, diagnostics] = target_selector{inputs};
+    xref = solutions{1};
+    uref = solutions{2};
+    if diagnostics == 1
+        error('The problem is infeasible for target selector');
+    end
+    xre = [xref; dhat];
+    %}
+    
+    eqconstraints = eqconstraintsgen(LTI, dim, dhat, yref);
+    [xref, uref] = optimalss(LTI, dim, cost, [], eqconstraints);
+    xre = [xref; dhat];
+    
+     inputs = {xehat(:,k), xre, uref};
+     [solutions,diagnostics] = controller{inputs};    
+     U = solutions{1};
+     X = solutions{2};
+     if diagnostics == 1
+         error('The problem is infeasible for controller');
+     end     
+
+    % Select the first input only
+    u_rec(:,k)=U(1:dim.nu);
+
+    % Compute the state/output evolution
+    xe(:,k+1)=LTIe.A*xe_0 + LTIe.B*u_rec(:,k);
+    y(:,k+1)=LTIe.C*xe(:,k+1);
+    clear u_uncon
+        
+    % Update extended-state estimation
+    xehat(:,k+1)=LTIe.A*xehat(:,k)+LTIe.B*u_rec(:,k)+L*(y(:,k)-LTIe.C*xehat(:,k));
+    
+end
+%
+plot_state(xe , u_rec , 'State Evolution with output MPC observer',xehat);
