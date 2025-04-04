@@ -7,19 +7,12 @@ LTI.Aclosed = LTI.A + LTI.B*LTI.K;
 
 LTI.furutaClosed = LTISystem('A', LTI.Aclosed);
 eig(LTI.Aclosed)
-LTI.furutaOpen = LTISystem('A', LTI.A, 'B', LTI.B);
+LTI.furutaClosed = LTISystem('A', LTI.Aclosed);
 
 LTI.furutaClosed.x.min = con.xmin; 
 LTI.furutaClosed.x.max = con.xmax;
 
-LTI.furutaOpen.x.min = con.xmin; 
-LTI.furutaOpen.x.max = con.xmax;
-
-LTI.furutaOpen.u.min = con.umin; 
-LTI.furutaOpen.u.max = con.umax;
-
 con.invariant_set = LTI.furutaClosed.invariantSet();
-% con.invariant_set = LTI.furutaOpen.invariantSet();
 
 disp(['Terminal state done. Empty : ', num2str(con.invariant_set.isEmptySet())])
 % tol1 = 0.2; tol2 = 0.2; tol3 = 1;

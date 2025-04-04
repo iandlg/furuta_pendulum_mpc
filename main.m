@@ -24,7 +24,7 @@ J0_hat = J1 + m1*l1^2 + m2*L1^2;
 J2_hat = J2 + m2*l2^2;
 
 %% Define Control Inputs (Torque Inputs)
-V = @(t) 10;  % Voltage applied to the motor (V)
+V = @(t) -10;  % Voltage applied to the motor (V)
 u2 = @(t) 0;  % External disturbance torque on Arm 2 (Nm)
 
 %% Equations of Motion with Inputs
@@ -55,7 +55,7 @@ u2 = @(t) 0;  % External disturbance torque on Arm 2 (Nm)
     ];
 %% Simulation Settings
 Tspan = [0 4];
-Y0 = [0; 0; 0; 0; 0]; % Initial conditions: [theta1, theta2, theta1_dot, theta2_dot]
+Y0 = [0; 5*pi/180; 0; 0; 0]; % Initial conditions: [theta1, theta2, theta1_dot, theta2_dot]
 
 %% Solve ODE using a more stable solver
 [t, Y] = ode15s(pendulum_dynamics, Tspan, Y0);
@@ -111,33 +111,33 @@ param.Ts = 0.2;
 
 % Parameters
 options = sdpsettings('verbose',0,'solver','quadprog');
-dim.N = 50;      % horizon
+dim.N =5;      % horizon
 dim.nx = size(LTI.A,1);      % system order
 dim.nu = 1;      % input order
 dim.nd = 1;  %number of disturbance
 param.time = 0:param.Ts:30;
 param.T = length(param.time);    % simulation number of steps
-param.eps = 1*pi/180; % deviation from equilibrium
+param.eps = 4.8*pi/180; % deviation from equilibrium
 
 Co = ctrb(LTI.A, LTI.B);
 disp(['The rank of the controlability matrix of the linearized matrix pair (A_d B_d) is : ', num2str(rank(Co))])
 
 % 1. Define LQR weighting matrices
-cost.Q = diag([0.1;0.1;1;1;10]);  % Weighting on states (identity matrix)
-cost.R = 1;             % Weighting on control input (scalar, as there's only one control input)
+cost.Q = diag([10;10;1;1;1]);  % Weighting on states (identity matrix)
+cost.R = 15;             % Weighting on control input (scalar, as there's only one control input)
 
 % Let Qf = P (solution to DARE)
 [LTI.K, cost.Qf, ~] = dlqr(LTI.A, LTI.B, cost.Q, cost.R); % Optimal feedback gain
 
 % 3. Define constraints
 %   State constraints : limit on theta 1 and 2 to stay linear
-con.xmax = [10; 5; 5; 5; 5];
+con.xmax = [pi; 4.8*pi/180; inf; inf; inf];
 con.xmin = -con.xmax;
 
 %   Input Constraint : set U st Gu \leq g
 con.umax = 10;
 con.umin = -con.umax;
-
+LTI.x0 = [0;param.eps;0;0;0];
 %   Terminal State Constraint : assume the same as state to be ok
 [con.Ff, con.ff] = get_term_state_constraints(LTI, con, dim);
 
@@ -154,9 +154,9 @@ for k = 1:dim.N
  constraints = [constraints, con.umin <= u{k}<= con.umax, con.xmin <= x{k+1}<= con.xmax];
 end
 % constraints = [constraints; con.Ff*x{dim.N+1} <= con.ff];
-constraints = [constraints; con.xmin <= x{dim.N+1}<= con.xmax];
+% constraints = [constraints; con.xmin <= x{dim.N+1}<= con.xmax];
 
-objective = objective + (x{dim.N+1}-x_ref)'*cost.Qf*(x{dim.N+1}-x_ref);
+objective = objective + 2*(x{dim.N+1}-x_ref)'*cost.Qf*(x{dim.N+1}-x_ref);
 
 parameters_in = x{1};
 solutions_out = {[u{:}], [x{:}]};
@@ -181,14 +181,14 @@ for k=1:param.T-1
     
     % Select the first input only
     u_rec(:,k) = U(1);
-
+    % u_rec(:,k) = -LTI.K*x(:,k);
     % Compute the state/output evolution
     x(:,k+1) = LTI.A*x(:,k) + LTI.B*u_rec(:,k); % + LTI.Bdist*d(:,k)
 end
 
 
 plot_state(x, u_rec, 'State and Input Evolution with MPC linear state control');
-pause(10);clc;close all;
+% pause(10);clc;close all;
 %% MPC implementation - Non Linear dynamics; full state knowledge
 clc;
 disp("MPC implementation - Non Linear dynamics; full state knowledge")
@@ -209,6 +209,8 @@ for k=1:param.T
     
     % Select the first input only
     u_rec(:,k) = U(1);
+    % u_rec(:,k) = -LTI.K*x(:,k);
+
 
     % sim real siyst
     % Simulate the nonlinear dynamics over one time step using ODE45
@@ -219,25 +221,43 @@ end
 plot_state(x_nonlin, u_rec, 'State and Input Evolution with MPC nonlinear state control');
 pause(10);clc;close all;
 %% MPC with observer, partial state knoledge
+close all;clc;
 disp("MPC implementation - Linear dynamics; Observer")
-param.eps = 0.5*pi/180;
+
+param.eps = 2*pi/180;
 yref = [0;0];
 x0 = [0;param.eps;0;0;0];
-d = 0;
+LTI.x0 = x0;
 
+dim.nd = 1;
 LTI.C = [1 0 0 0 0;
          0 1 0 0 0]; % assume access to theta1 and 2 angles
 
 dim.ny = size(LTI.C, 1);
-LTI.Cdist = [0;0];
+LTI.Cdist = zeros(dim.ny,dim.nd);
+%{
+A_d = 0.000;      % Ampiezza del disturbo
+omega_d = 1 * pi * 0.5;  % Frequenza in rad/s
 
-LTIe.A=[LTI.A LTI.Bdist; zeros(dim.nd,dim.nx) eye(dim.nd)];
-LTIe.B=[LTI.B; zeros(dim.nd,dim.nu)];
-LTIe.C=[LTI.C LTI.Cdist];
-LTIe.x0=[x0; d];
-LTIe.yref=yref;
+S = [0 omega_d; -omega_d 0];
 
-dime.nx=6;     %state dimension
+% Matrice di transizione discreta
+Sin_disc = expm(S * param.Ts);
+
+LTI.Bdist = [LTI.Bdist(:,1), zeros(dim.nx,1)];
+LTIe.A = [LTI.A, LTI.Bdist; 
+          zeros(dim.nd, dim.nx), Sin_disc]; % Ampiezza inclusa
+%}
+LTIe.A = [LTI.A, LTI.Bdist; 
+          zeros(dim.nd, dim.nx), eye(dim.nd)]; % Ampiezza inclusa
+LTIe.B = [LTI.B; zeros(dim.nd,dim.nu)];
+LTIe.C = [LTI.C, LTI.Cdist];
+% LTIe.x0 = [x0; A_d; 0];
+LTIe.x0 = [x0; 0];
+
+LTIe.yref = yref;
+
+dime.nx=dim.nx+dim.nd;     %state dimension
 dime.nu=1;     %input dimension
 dime.ny=2;     %output dimension
 dime.N=5;      %horizon
@@ -253,7 +273,8 @@ xehat=zeros(dime.nx,param.T+1);
 
 xe(:,1)=LTIe.x0;
 xehat(:,1)=[0; 0; 0; 0; 0; 0];
-measurement_noise = 0.001*normrnd(0,1,dim.ny,1);
+
+measurement_noise = 0.00*normrnd(0,1,dim.ny,1);
 y(:,1)=LTIe.C*LTIe.x0 +  measurement_noise;
 
 
@@ -261,12 +282,14 @@ L = place(LTIe.A',LTIe.C',[0.6; 0.55; 0.5;0.65 ;0.7; 0.4])';
 
 options = sdpsettings('verbose',0,'solver','quadprog');
 
-con.xmax = [10; 5*pi/180; 10; 10; 10];
+con.xmax = [inf; inf*pi/180; inf; inf; inf];
 con.xmin = -con.xmax;
 con.xmaxe = [inf; 5*pi/180; inf; inf; inf; 10];
 con.xmine = -con.xmaxe;
 con.umax = 10;
 con.umin = -con.umax;
+
+[con.Ff, con.ff] = get_term_state_constraints(LTI, con, dim);
 
 % optimizer for the controller
 u = sdpvar(repmat(dime.nu,1,dime.N),ones(1,dime.N)); 
@@ -281,6 +304,7 @@ for k = 1:dime.N
  constraints = [constraints, x{k+1} == LTIe.A*x{k} + LTIe.B*u{k}];
  constraints = [constraints, con.umin <= u{k}<= con.umax, con.xmine <= x{k+1}<= con.xmaxe];
 end
+constraints = [constraints; con.Ff*x{dim.N+1}(1:5) <= con.ff];
 
 objective = objective + (x{dime.N+1}-xr)'*weighte.P*(x{dime.N+1}-xr);
 
@@ -288,7 +312,7 @@ parameters_in = {x{1}, xr, ur};
 solutions_out = {[u{:}], [x{:}]};
 
 controller = optimizer(constraints, objective,options,parameters_in,solutions_out);
-
+%
 %optimizer for the target selection
 %{
 xref = sdpvar(dim.nx,1);
@@ -309,8 +333,9 @@ solutions_output = {xref, uref};
 
 target_selector = optimizer(constraints, objective, options, solutions_input, solutions_output);
 %}
-param.T = 250;
+param.T = 150;
 for k=1:param.T
+    k
     if(k>=90&& k<=95 )
         xe(end,k) = 0.0002;
     else
@@ -339,17 +364,17 @@ for k=1:param.T
      [solutions,diagnostics] = controller{inputs};    
      U = solutions{1};
      X = solutions{2};
-     if diagnostics == 1
-         error('The problem is infeasible for controller');
-     end     
+     % if diagnostics == 1
+     %     error('The problem is infeasible for controller');
+     % end     
 
     % Select the first input only
-    u_rec(:,k)=U(1:dim.nu);
-
+    % u_rec(:,k)=U(1:dim.nu);
+    u_rec(:,k)= -LTI.K*xehat(1:dim.nx,k);
     % Compute the state/output evolution
-    process_noise = 0.00001 * normrnd(0,1, [dime.nx, 1]);
+    process_noise = 0 * normrnd(0,1, [dime.nx, 1]);
     xe(:,k+1)=LTIe.A*xe_0 + LTIe.B*u_rec(:,k) + process_noise;
-    measurement_noise = 0.0001*normrnd(0,1,dim.ny,1);
+    measurement_noise = 0*normrnd(0,1,dim.ny,1);
     y(:,k+1)=LTIe.C*xe(:,k+1)+ measurement_noise;
         
     % Update extended-state estimation
@@ -363,7 +388,7 @@ plot_state(xe , u_rec , 'State Evolution with output MPC observer',xehat);
 %% Output MPC - with input and measurement noise, Kalman fiklter
 disp("Output MPC - with input and measurement noise, Kalman filter")
 
-param.eps = 0*pi/180; % deviation from equilibrium
+param.eps = 1*pi/180; % deviation from equilibrium
 
 Ob = obsv(LTI.A, LTI.C);
 disp(['The rank of the observability matrix of the linearized matrix pair (A C) is : ', num2str(rank(Ob))])
@@ -389,7 +414,7 @@ for k=1:param.T
     [xhat(:,k), cov.pos] = measurement_update(xhat(:,k), y, LTIe, cov);
     
     if(k>=90&& k<=95 )
-        x(end,k) = 0.002;
+        x(end,k) = 0.00;
     else
         x(end,k) = 0;
     end
