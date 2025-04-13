@@ -1,6 +1,6 @@
 function[xref,uref]=optimalss(LTI,dim,weight,constraints,eqconstraints)
 
-H=blkdiag(zeros(dim.nx),eye(dim.nu));
+H=blkdiag(0,1,0,0,0,eye(dim.nu));
 h=zeros(dim.nx+dim.nu,1);
 
 
